@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Certificação Acadêmica — Blockchain Local</title>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: system-ui, Arial, sans-serif; max-width: 900px; margin: 24px auto; padding: 0 16px; color: #1a1a2e; }
+  h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  h2 { font-size: 1.05rem; margin-top: 32px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
+  .sub { color: #666; margin-top: 0; font-size: 0.9rem; }
+  label { display: block; margin-top: 10px; font-size: 0.85rem; font-weight: 600; }
+  input, select { width: 100%; padding: 7px 9px; margin-top: 3px; box-sizing: border-box; font-size: 0.9rem; }
+  button { margin-top: 12px; padding: 8px 16px; background: #2b2d6e; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9rem; }
+  button:hover { background: #1f2050; }
+  button.secondary { background: #6c6f93; }
+  .card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; margin-top: 12px; background: #fafafa; }
+  .msg { margin-top: 12px; padding: 10px 12px; border-radius: 6px; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; }
+  .msg.ok { background: #e6f7ec; color: #1e5b34; border: 1px solid #a9dcbb; }
+  .msg.err { background: #fdeaea; color: #8a1f1f; border: 1px solid #f2b8b8; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.82rem; }
+  th, td { border-bottom: 1px solid #e5e5e5; padding: 6px 8px; text-align: left; }
+  th { background: #f0f0f5; }
+  .badge { padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+  .badge.valido { background: #d9f2e3; color: #1e5b34; }
+  .badge.revogado { background: #f5d9d9; color: #8a1f1f; }
+  .hint { color: #888; font-size: 0.78rem; margin-top: 4px; }
+  code { background: #eee; padding: 1px 5px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<h1>🎓 Certificação Acadêmica em Blockchain</h1>
+<p class="sub">Interface para registrar, consultar e revogar certificados na blockchain local (Hardhat).</p>
+
+<div class="card">
+  <label>Rede local</label>
+  <div id="statusRede" class="hint">conectando em http://127.0.0.1:8545 ...</div>
+
+  <label>Conta atual (quem vai assinar as transações)</label>
+  <select id="contaSelect"></select>
+  <div class="hint">Conta #0 é a instituição (owner) por padrão. Use outras contas para simular usuários sem permissão.</div>
+</div>
+
+<h2>1. Emitir certificado</h2>
+<div class="card">
+  <label>Endereço do aluno</label>
+  <input id="alunoInput" placeholder="0x..." />
+
+  <label>Curso</label>
+  <input id="cursoInput" placeholder="Ex: Engenharia da Computação" />
+
+  <label>Texto para gerar o hash do documento (simula o conteúdo do certificado)</label>
+  <input id="textoHashInput" placeholder="Ex: certificado-joao-2026-eng-comp" />
+  <div class="hint">O hash (keccak256) desse texto é o que vai para a blockchain — não o texto em si.</div>
+
+  <button onclick="emitirCertificado()">Emitir certificado</button>
+  <div id="emitirMsg"></div>
+</div>
+
+<h2>2. Consultar certificado</h2>
+<div class="card">
+  <label>ID do certificado</label>
+  <input id="consultaIdInput" placeholder="Ex: 1" />
+  <button onclick="consultarPorId()">Consultar por ID</button>
+  <button class="secondary" onclick="consultarPorTexto()">Consultar pelo texto usado na emissão</button>
+  <div id="consultaResultado"></div>
+</div>
+
+<h2>3. Revogar certificado</h2>
+<div class="card">
+  <label>ID do certificado a revogar</label>
+  <input id="revogarIdInput" placeholder="Ex: 1" />
+  <button onclick="revogarCertificado()">Revogar</button>
+  <div id="revogarMsg"></div>
+</div>
+
+<h2>4. Visualizar a blockchain (eventos registrados)</h2>
+<div class="card">
+  <button class="secondary" onclick="carregarEventos()">Atualizar lista de eventos</button>
+  <table id="tabelaEventos">
+    <thead>
+      <tr><th>Bloco</th><th>Evento</th><th>ID</th><th>Detalhes</th><th>Tx</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<h2>5. Gerenciar emissores autorizados (instituição)</h2>
+<div class="card">
+  <label>Endereço a autorizar como emissor</label>
+  <input id="novoEmissorInput" placeholder="0x..." />
+  <button onclick="autorizarEmissor()">Autorizar emissor</button>
+  <div id="emissorMsg"></div>
+</div>
+
+<script src="config.js"></script>
+<script>
+let provider, contas = [];
+
+async function iniciar() {
+  try {
+    provider = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
+    contas = await provider.listAccounts();
+    document.getElementById("statusRede").textContent =
+      "✅ Conectado. " + contas.length + " contas encontradas. Contrato: " + CONTRACT_ADDRESS;
+
+    const select = document.getElementById("contaSelect");
+    select.innerHTML = "";
+    contas.forEach((c, i) => {
+      const opt = document.createElement("option");
+      opt.value = c.address;
+      opt.textContent = "Conta #" + i + " — " + c.address + (i === 0 ? " (instituição)" : "");
+      select.appendChild(opt);
+    });
+  } catch (e) {
+    document.getElementById("statusRede").textContent =
+      "❌ Não foi possível conectar. Confirme que 'npm run node' está rodando e que o contrato foi implantado (npm run deploy).";
+  }
+}
+
+function contratoComSigner() {
+  const enderecoConta = document.getElementById("contaSelect").value;
+  const signer = new ethers.JsonRpcSigner(provider, enderecoConta);
+  return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+}
+
+function contratoSomenteLeitura() {
+  return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+}
+
+function mostrarMsg(elId, texto, ok) {
+  const el = document.getElementById(elId);
+  el.className = "msg " + (ok ? "ok" : "err");
+  el.textContent = texto;
+}
+
+function extrairErro(e) {
+  return e.reason || e.shortMessage || (e.error && e.error.message) || e.message || String(e);
+}
+
+async function emitirCertificado() {
+  const aluno = document.getElementById("alunoInput").value.trim();
+  const curso = document.getElementById("cursoInput").value.trim();
+  const texto = document.getElementById("textoHashInput").value.trim();
+  const msgEl = "emitirMsg";
+
+  try {
+    const hash = ethers.keccak256(ethers.toUtf8Bytes(texto));
+    const contrato = contratoComSigner();
+    const tx = await contrato.emitirCertificado(aluno, hash, curso);
+    mostrarMsg(msgEl, "Transação enviada, aguardando confirmação...\nHash da tx: " + tx.hash, true);
+    const recibo = await tx.wait();
+    mostrarMsg(msgEl, "✅ Certificado emitido e confirmado!\nHash da tx: " + tx.hash + "\nBloco: " + recibo.blockNumber, true);
+    carregarEventos();
+  } catch (e) {
+    mostrarMsg(msgEl, "❌ Operação rejeitada: " + extrairErro(e), false);
+  }
+}
+
+async function consultarPorId() {
+  const id = document.getElementById("consultaIdInput").value.trim();
+  await consultarEExibir(id);
+}
+
+async function consultarPorTexto() {
+  const texto = document.getElementById("textoHashInput").value.trim();
+  try {
+    const hash = ethers.keccak256(ethers.toUtf8Bytes(texto));
+    const contrato = contratoSomenteLeitura();
+    const id = await contrato.idPorHash(hash);
+    if (id.toString() === "0") {
+      mostrarMsg("consultaResultado", "Nenhum certificado encontrado para esse texto.", false);
+      return;
+    }
+    await consultarEExibir(id.toString());
+  } catch (e) {
+    mostrarMsg("consultaResultado", "❌ Erro: " + extrairErro(e), false);
+  }
+}
+
+async function consultarEExibir(id) {
+  try {
+    const contrato = contratoSomenteLeitura();
+    const c = await contrato.verificarCertificado(id);
+    const status = c.valido
+      ? '<span class="badge valido">VÁLIDO</span>'
+      : '<span class="badge revogado">REVOGADO</span>';
+    document.getElementById("consultaResultado").innerHTML =
+      '<div class="msg ok">' +
+      "ID: " + id + "<br>" +
+      "Aluno: " + c.aluno + "<br>" +
+      "Emissor: " + c.emissor + "<br>" +
+      "Curso: " + c.curso + "<br>" +
+      "Hash do documento: " + c.hashDocumento + "<br>" +
+      "Emitido em: " + new Date(Number(c.timestamp) * 1000).toLocaleString() + "<br>" +
+      "Status: " + status +
+      "</div>";
+  } catch (e) {
+    mostrarMsg("consultaResultado", "❌ " + extrairErro(e), false);
+  }
+}
+
+async function revogarCertificado() {
+  const id = document.getElementById("revogarIdInput").value.trim();
+  try {
+    const contrato = contratoComSigner();
+    const tx = await contrato.revogarCertificado(id);
+    mostrarMsg("revogarMsg", "Revogando... tx: " + tx.hash, true);
+    await tx.wait();
+    mostrarMsg("revogarMsg", "✅ Certificado " + id + " revogado.", true);
+    carregarEventos();
+  } catch (e) {
+    mostrarMsg("revogarMsg", "❌ Operação rejeitada: " + extrairErro(e), false);
+  }
+}
+
+async function autorizarEmissor() {
+  const endereco = document.getElementById("novoEmissorInput").value.trim();
+  try {
+    const contrato = contratoComSigner();
+    const tx = await contrato.autorizarEmissor(endereco);
+    mostrarMsg("emissorMsg", "Autorizando... tx: " + tx.hash, true);
+    await tx.wait();
+    mostrarMsg("emissorMsg", "✅ Endereço autorizado como emissor.", true);
+  } catch (e) {
+    mostrarMsg("emissorMsg", "❌ Operação rejeitada: " + extrairErro(e), false);
+  }
+}
+
+async function carregarEventos() {
+  const contrato = contratoSomenteLeitura();
+  const emitidos = await contrato.queryFilter("CertificadoEmitido", 0, "latest");
+  const revogados = await contrato.queryFilter("CertificadoRevogado", 0, "latest");
+
+  const linhas = [];
+  emitidos.forEach(ev => linhas.push({
+    bloco: ev.blockNumber,
+    evento: "Emitido",
+    id: ev.args.id.toString(),
+    detalhes: "Aluno: " + ev.args.aluno + " | Emissor: " + ev.args.emissor,
+    tx: ev.transactionHash
+  }));
+  revogados.forEach(ev => linhas.push({
+    bloco: ev.blockNumber,
+    evento: "Revogado",
+    id: ev.args.id.toString(),
+    detalhes: "Revogado por: " + ev.args.revogadoPor,
+    tx: ev.transactionHash
+  }));
+  linhas.sort((a, b) => a.bloco - b.bloco);
+
+  const corpo = document.querySelector("#tabelaEventos tbody");
+  corpo.innerHTML = "";
+  linhas.forEach(l => {
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      "<td>" + l.bloco + "</td>" +
+      "<td>" + l.evento + "</td>" +
+      "<td>" + l.id + "</td>" +
+      "<td>" + l.detalhes + "</td>" +
+      "<td title='" + l.tx + "'>" + l.tx.slice(0, 10) + "...</td>";
+    corpo.appendChild(tr);
+  });
+}
+
+iniciar();
+</script>
+</body>
+</html>
