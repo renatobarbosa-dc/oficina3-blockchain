@@ -1,271 +1,543 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-<meta charset="UTF-8" />
-<title>Certificação Acadêmica — Blockchain Local</title>
-<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
-<style>
-  :root { color-scheme: light; }
-  body { font-family: system-ui, Arial, sans-serif; max-width: 900px; margin: 24px auto; padding: 0 16px; color: #1a1a2e; }
-  h1 { font-size: 1.4rem; margin-bottom: 4px; }
-  h2 { font-size: 1.05rem; margin-top: 32px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
-  .sub { color: #666; margin-top: 0; font-size: 0.9rem; }
-  label { display: block; margin-top: 10px; font-size: 0.85rem; font-weight: 600; }
-  input, select { width: 100%; padding: 7px 9px; margin-top: 3px; box-sizing: border-box; font-size: 0.9rem; }
-  button { margin-top: 12px; padding: 8px 16px; background: #2b2d6e; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9rem; }
-  button:hover { background: #1f2050; }
-  button.secondary { background: #6c6f93; }
-  .card { border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; margin-top: 12px; background: #fafafa; }
-  .msg { margin-top: 12px; padding: 10px 12px; border-radius: 6px; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; }
-  .msg.ok { background: #e6f7ec; color: #1e5b34; border: 1px solid #a9dcbb; }
-  .msg.err { background: #fdeaea; color: #8a1f1f; border: 1px solid #f2b8b8; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.82rem; }
-  th, td { border-bottom: 1px solid #e5e5e5; padding: 6px 8px; text-align: left; }
-  th { background: #f0f0f5; }
-  .badge { padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
-  .badge.valido { background: #d9f2e3; color: #1e5b34; }
-  .badge.revogado { background: #f5d9d9; color: #8a1f1f; }
-  .hint { color: #888; font-size: 0.78rem; margin-top: 4px; }
-  code { background: #eee; padding: 1px 5px; border-radius: 3px; }
-</style>
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Certificação Acadêmica — Blockchain Local</title>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">
+          <svg
+            class="logo"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 4L2 9l10 5 10-5-10-5z" />
+            <path d="M6 11.5V17c0 1.1 2.7 3 6 3s6-1.9 6-3v-5.5" />
+            <path d="M22 9v6" />
+          </svg>
+          <h1>Certificação Acadêmica</h1>
+        </div>
+        <p class="sub">
+          Registro, consulta e revogação de certificados na blockchain local
+          (Hardhat).
+        </p>
 
-<h1>🎓 Certificação Acadêmica em Blockchain</h1>
-<p class="sub">Interface para registrar, consultar e revogar certificados na blockchain local (Hardhat).</p>
+        <div class="status-box">
+          <div id="statusRede">conectando em http://127.0.0.1:8545 ...</div>
+          <label for="contaSelect">Conta atual</label>
+          <select id="contaSelect"></select>
+          <div class="hint">
+            Conta #0 é a instituição (owner). Use outras contas para simular
+            usuários sem permissão.
+          </div>
+        </div>
 
-<div class="card">
-  <label>Rede local</label>
-  <div id="statusRede" class="hint">conectando em http://127.0.0.1:8545 ...</div>
+        <p class="nav-label">Menu</p>
+        <nav class="menu" id="menuPrincipal">
+          <button
+            type="button"
+            data-pagina="emitir"
+            class="ativo"
+            aria-current="page"
+          >
+            <svg
+              class="icone"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V9z" />
+              <path d="M14 3v6h6" />
+              <path d="M9 15h6M9 12h3" />
+            </svg>
+            Emitir certificado
+          </button>
+          <button type="button" data-pagina="consultar">
+            <svg
+              class="icone"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="6.5" />
+              <path d="M20 20l-4.3-4.3" />
+            </svg>
+            Consultar certificado
+          </button>
+          <button type="button" data-pagina="revogar">
+            <svg
+              class="icone"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path d="M6 6l12 12" />
+            </svg>
+            Revogar certificado
+          </button>
+          <button type="button" data-pagina="eventos">
+            <svg
+              class="icone"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="4" y="4" width="7" height="7" rx="1" />
+              <rect x="13" y="4" width="7" height="7" rx="1" />
+              <rect x="4" y="13" width="7" height="7" rx="1" />
+              <rect x="13" y="13" width="7" height="7" rx="1" />
+            </svg>
+            Eventos da blockchain
+          </button>
+          <button type="button" data-pagina="emissores">
+            <svg
+              class="icone"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 10l9-5 9 5" />
+              <path d="M5 10v8M9 10v8M15 10v8M19 10v8" />
+              <path d="M3 21h18" />
+            </svg>
+            Emissores autorizados
+          </button>
+        </nav>
+      </aside>
 
-  <label>Conta atual (quem vai assinar as transações)</label>
-  <select id="contaSelect"></select>
-  <div class="hint">Conta #0 é a instituição (owner) por padrão. Use outras contas para simular usuários sem permissão.</div>
-</div>
+      <main class="main">
+        <section class="pagina ativa" id="pagina-emitir">
+          <h2>Emitir certificado</h2>
+          <p class="page-desc">
+            Registra um novo certificado na blockchain, assinado pela conta
+            selecionada.
+          </p>
+          <div class="card">
+            <label for="alunoInput">Endereço do aluno</label>
+            <input id="alunoInput" placeholder="0x..." />
 
-<h2>1. Emitir certificado</h2>
-<div class="card">
-  <label>Endereço do aluno</label>
-  <input id="alunoInput" placeholder="0x..." />
+            <label for="cursoInput">Curso</label>
+            <input id="cursoInput" placeholder="Ex: Engenharia da Computação" />
 
-  <label>Curso</label>
-  <input id="cursoInput" placeholder="Ex: Engenharia da Computação" />
+            <label for="textoHashInput"
+              >Texto para gerar o hash do documento (simula o conteúdo do
+              certificado)</label
+            >
+            <input
+              id="textoHashInput"
+              placeholder="Ex: certificado-joao-2026-eng-comp"
+            />
+            <div class="hint">
+              O hash (keccak256) desse texto é o que vai para a blockchain — não
+              o texto em si.
+            </div>
 
-  <label>Texto para gerar o hash do documento (simula o conteúdo do certificado)</label>
-  <input id="textoHashInput" placeholder="Ex: certificado-joao-2026-eng-comp" />
-  <div class="hint">O hash (keccak256) desse texto é o que vai para a blockchain — não o texto em si.</div>
+            <button onclick="emitirCertificado()">Emitir certificado</button>
+            <div id="emitirMsg"></div>
+          </div>
+        </section>
 
-  <button onclick="emitirCertificado()">Emitir certificado</button>
-  <div id="emitirMsg"></div>
-</div>
+        <section class="pagina" id="pagina-consultar">
+          <h2>Consultar certificado</h2>
+          <p class="page-desc">
+            Verifica os dados e o status de um certificado já emitido.
+          </p>
+          <div class="card">
+            <label for="consultaIdInput">ID do certificado</label>
+            <input id="consultaIdInput" placeholder="Ex: 1" />
+            <button onclick="consultarPorId()">Consultar por ID</button>
+            <button class="secondary" onclick="consultarPorTexto()">
+              Consultar pelo texto usado na emissão
+            </button>
+            <div id="consultaResultado"></div>
+          </div>
+        </section>
 
-<h2>2. Consultar certificado</h2>
-<div class="card">
-  <label>ID do certificado</label>
-  <input id="consultaIdInput" placeholder="Ex: 1" />
-  <button onclick="consultarPorId()">Consultar por ID</button>
-  <button class="secondary" onclick="consultarPorTexto()">Consultar pelo texto usado na emissão</button>
-  <div id="consultaResultado"></div>
-</div>
+        <section class="pagina" id="pagina-revogar">
+          <h2>Revogar certificado</h2>
+          <p class="page-desc">
+            Invalida um certificado emitido anteriormente. Ação permanente.
+          </p>
+          <div class="card">
+            <label for="revogarIdInput">ID do certificado a revogar</label>
+            <input id="revogarIdInput" placeholder="Ex: 1" />
+            <button onclick="revogarCertificado()">Revogar</button>
+            <div id="revogarMsg"></div>
+          </div>
+        </section>
 
-<h2>3. Revogar certificado</h2>
-<div class="card">
-  <label>ID do certificado a revogar</label>
-  <input id="revogarIdInput" placeholder="Ex: 1" />
-  <button onclick="revogarCertificado()">Revogar</button>
-  <div id="revogarMsg"></div>
-</div>
+        <section class="pagina" id="pagina-eventos">
+          <h2>Visualizar a blockchain</h2>
+          <p class="page-desc">
+            Histórico de emissões e revogações registradas nos eventos do
+            contrato.
+          </p>
+          <div class="card">
+            <button class="secondary" onclick="carregarEventos()">
+              Atualizar lista de eventos
+            </button>
+            <table id="tabelaEventos">
+              <thead>
+                <tr>
+                  <th>Bloco</th>
+                  <th>Evento</th>
+                  <th>ID</th>
+                  <th>Detalhes</th>
+                  <th>Tx</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
 
-<h2>4. Visualizar a blockchain (eventos registrados)</h2>
-<div class="card">
-  <button class="secondary" onclick="carregarEventos()">Atualizar lista de eventos</button>
-  <table id="tabelaEventos">
-    <thead>
-      <tr><th>Bloco</th><th>Evento</th><th>ID</th><th>Detalhes</th><th>Tx</th></tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-</div>
+        <section class="pagina" id="pagina-emissores">
+          <h2>Gerenciar emissores autorizados</h2>
+          <p class="page-desc">
+            Apenas a instituição (conta #0) pode autorizar novos emissores.
+          </p>
+          <div class="card">
+            <label for="novoEmissorInput"
+              >Endereço a autorizar como emissor</label
+            >
+            <input id="novoEmissorInput" placeholder="0x..." />
+            <button onclick="autorizarEmissor()">Autorizar emissor</button>
+            <div id="emissorMsg"></div>
+          </div>
+        </section>
+      </main>
+    </div>
 
-<h2>5. Gerenciar emissores autorizados (instituição)</h2>
-<div class="card">
-  <label>Endereço a autorizar como emissor</label>
-  <input id="novoEmissorInput" placeholder="0x..." />
-  <button onclick="autorizarEmissor()">Autorizar emissor</button>
-  <div id="emissorMsg"></div>
-</div>
+    <script src="config.js"></script>
+    <script>
+      let provider,
+        contas = [];
 
-<script src="config.js"></script>
-<script>
-let provider, contas = [];
+      const ICONS = {
+        check:
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>',
+        error:
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5"/><circle cx="12" cy="16" r="0.75" fill="currentColor" stroke="none"/></svg>',
+      };
 
-async function iniciar() {
-  try {
-    provider = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
-    contas = await provider.listAccounts();
-    document.getElementById("statusRede").textContent =
-      "✅ Conectado. " + contas.length + " contas encontradas. Contrato: " + CONTRACT_ADDRESS;
+      function mostrarPagina(nome) {
+        document
+          .querySelectorAll(".pagina")
+          .forEach((p) => p.classList.remove("ativa"));
+        document.getElementById("pagina-" + nome).classList.add("ativa");
 
-    const select = document.getElementById("contaSelect");
-    select.innerHTML = "";
-    contas.forEach((c, i) => {
-      const opt = document.createElement("option");
-      opt.value = c.address;
-      opt.textContent = "Conta #" + i + " — " + c.address + (i === 0 ? " (instituição)" : "");
-      select.appendChild(opt);
-    });
-  } catch (e) {
-    document.getElementById("statusRede").textContent =
-      "❌ Não foi possível conectar. Confirme que 'npm run node' está rodando e que o contrato foi implantado (npm run deploy).";
-  }
-}
+        document.querySelectorAll("#menuPrincipal button").forEach((b) => {
+          const ativo = b.dataset.pagina === nome;
+          b.classList.toggle("ativo", ativo);
+          if (ativo) b.setAttribute("aria-current", "page");
+          else b.removeAttribute("aria-current");
+        });
+      }
 
-function contratoComSigner() {
-  const enderecoConta = document.getElementById("contaSelect").value;
-  const signer = new ethers.JsonRpcSigner(provider, enderecoConta);
-  return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-}
+      document
+        .getElementById("menuPrincipal")
+        .addEventListener("click", (e) => {
+          const btn = e.target.closest("button[data-pagina]");
+          if (btn) mostrarPagina(btn.dataset.pagina);
+        });
 
-function contratoSomenteLeitura() {
-  return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-}
+      async function iniciar() {
+        const statusEl = document.getElementById("statusRede");
+        try {
+          provider = new ethers.JsonRpcProvider("http://127.0.0.1:8545");
+          contas = await provider.listAccounts();
+          statusEl.innerHTML =
+            '<span class="status-icone">' +
+            ICONS.check +
+            "</span>" +
+            '<span class="status-texto">Conectado. ' +
+            contas.length +
+            " contas encontradas." +
+            '<span class="endereco-contrato">Contrato: ' +
+            CONTRACT_ADDRESS +
+            "</span></span>";
+          statusEl.className = "conectado";
 
-function mostrarMsg(elId, texto, ok) {
-  const el = document.getElementById(elId);
-  el.className = "msg " + (ok ? "ok" : "err");
-  el.textContent = texto;
-}
+          const select = document.getElementById("contaSelect");
+          select.innerHTML = "";
+          contas.forEach((c, i) => {
+            const opt = document.createElement("option");
+            opt.value = c.address;
+            opt.textContent =
+              "Conta #" +
+              i +
+              " — " +
+              c.address +
+              (i === 0 ? " (instituição)" : "");
+            select.appendChild(opt);
+          });
+        } catch (e) {
+          statusEl.innerHTML =
+            '<span class="status-icone">' +
+            ICONS.error +
+            "</span>" +
+            "<span class=\"status-texto\">Não foi possível conectar. Confirme que 'npm run node' está rodando e que o contrato foi implantado (npm run deploy).</span>";
+          statusEl.className = "erro";
+        }
+      }
 
-function extrairErro(e) {
-  return e.reason || e.shortMessage || (e.error && e.error.message) || e.message || String(e);
-}
+      function contratoComSigner() {
+        const enderecoConta = document.getElementById("contaSelect").value;
+        const signer = new ethers.JsonRpcSigner(provider, enderecoConta);
+        return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+      }
 
-async function emitirCertificado() {
-  const aluno = document.getElementById("alunoInput").value.trim();
-  const curso = document.getElementById("cursoInput").value.trim();
-  const texto = document.getElementById("textoHashInput").value.trim();
-  const msgEl = "emitirMsg";
+      function contratoSomenteLeitura() {
+        return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+      }
 
-  try {
-    const hash = ethers.keccak256(ethers.toUtf8Bytes(texto));
-    const contrato = contratoComSigner();
-    const tx = await contrato.emitirCertificado(aluno, hash, curso);
-    mostrarMsg(msgEl, "Transação enviada, aguardando confirmação...\nHash da tx: " + tx.hash, true);
-    const recibo = await tx.wait();
-    mostrarMsg(msgEl, "✅ Certificado emitido e confirmado!\nHash da tx: " + tx.hash + "\nBloco: " + recibo.blockNumber, true);
-    carregarEventos();
-  } catch (e) {
-    mostrarMsg(msgEl, "❌ Operação rejeitada: " + extrairErro(e), false);
-  }
-}
+      function mostrarMsg(elId, texto, ok) {
+        const el = document.getElementById(elId);
+        el.className = "msg " + (ok ? "ok" : "err");
+        el.innerHTML = "";
 
-async function consultarPorId() {
-  const id = document.getElementById("consultaIdInput").value.trim();
-  await consultarEExibir(id);
-}
+        const icone = document.createElement("span");
+        icone.className = "msg-icone";
+        icone.innerHTML = ok ? ICONS.check : ICONS.error;
 
-async function consultarPorTexto() {
-  const texto = document.getElementById("textoHashInput").value.trim();
-  try {
-    const hash = ethers.keccak256(ethers.toUtf8Bytes(texto));
-    const contrato = contratoSomenteLeitura();
-    const id = await contrato.idPorHash(hash);
-    if (id.toString() === "0") {
-      mostrarMsg("consultaResultado", "Nenhum certificado encontrado para esse texto.", false);
-      return;
-    }
-    await consultarEExibir(id.toString());
-  } catch (e) {
-    mostrarMsg("consultaResultado", "❌ Erro: " + extrairErro(e), false);
-  }
-}
+        const textoEl = document.createElement("span");
+        textoEl.className = "msg-texto";
+        textoEl.textContent = texto;
 
-async function consultarEExibir(id) {
-  try {
-    const contrato = contratoSomenteLeitura();
-    const c = await contrato.verificarCertificado(id);
-    const status = c.valido
-      ? '<span class="badge valido">VÁLIDO</span>'
-      : '<span class="badge revogado">REVOGADO</span>';
-    document.getElementById("consultaResultado").innerHTML =
-      '<div class="msg ok">' +
-      "ID: " + id + "<br>" +
-      "Aluno: " + c.aluno + "<br>" +
-      "Emissor: " + c.emissor + "<br>" +
-      "Curso: " + c.curso + "<br>" +
-      "Hash do documento: " + c.hashDocumento + "<br>" +
-      "Emitido em: " + new Date(Number(c.timestamp) * 1000).toLocaleString() + "<br>" +
-      "Status: " + status +
-      "</div>";
-  } catch (e) {
-    mostrarMsg("consultaResultado", "❌ " + extrairErro(e), false);
-  }
-}
+        el.appendChild(icone);
+        el.appendChild(textoEl);
+      }
 
-async function revogarCertificado() {
-  const id = document.getElementById("revogarIdInput").value.trim();
-  try {
-    const contrato = contratoComSigner();
-    const tx = await contrato.revogarCertificado(id);
-    mostrarMsg("revogarMsg", "Revogando... tx: " + tx.hash, true);
-    await tx.wait();
-    mostrarMsg("revogarMsg", "✅ Certificado " + id + " revogado.", true);
-    carregarEventos();
-  } catch (e) {
-    mostrarMsg("revogarMsg", "❌ Operação rejeitada: " + extrairErro(e), false);
-  }
-}
+      function extrairErro(e) {
+        return (
+          e.reason ||
+          e.shortMessage ||
+          (e.error && e.error.message) ||
+          e.message ||
+          String(e)
+        );
+      }
 
-async function autorizarEmissor() {
-  const endereco = document.getElementById("novoEmissorInput").value.trim();
-  try {
-    const contrato = contratoComSigner();
-    const tx = await contrato.autorizarEmissor(endereco);
-    mostrarMsg("emissorMsg", "Autorizando... tx: " + tx.hash, true);
-    await tx.wait();
-    mostrarMsg("emissorMsg", "✅ Endereço autorizado como emissor.", true);
-  } catch (e) {
-    mostrarMsg("emissorMsg", "❌ Operação rejeitada: " + extrairErro(e), false);
-  }
-}
+      async function emitirCertificado() {
+        const aluno = document.getElementById("alunoInput").value.trim();
+        const curso = document.getElementById("cursoInput").value.trim();
+        const texto = document.getElementById("textoHashInput").value.trim();
+        const msgEl = "emitirMsg";
 
-async function carregarEventos() {
-  const contrato = contratoSomenteLeitura();
-  const emitidos = await contrato.queryFilter("CertificadoEmitido", 0, "latest");
-  const revogados = await contrato.queryFilter("CertificadoRevogado", 0, "latest");
+        try {
+          const hash = ethers.keccak256(ethers.toUtf8Bytes(texto));
+          const contrato = contratoComSigner();
+          const tx = await contrato.emitirCertificado(aluno, hash, curso);
+          mostrarMsg(
+            msgEl,
+            "Transação enviada, aguardando confirmação...\nHash da tx: " +
+              tx.hash,
+            true,
+          );
+          const recibo = await tx.wait();
+          mostrarMsg(
+            msgEl,
+            "Certificado emitido e confirmado!\nHash da tx: " +
+              tx.hash +
+              "\nBloco: " +
+              recibo.blockNumber,
+            true,
+          );
+          carregarEventos();
+        } catch (e) {
+          mostrarMsg(msgEl, "Operação rejeitada: " + extrairErro(e), false);
+        }
+      }
 
-  const linhas = [];
-  emitidos.forEach(ev => linhas.push({
-    bloco: ev.blockNumber,
-    evento: "Emitido",
-    id: ev.args.id.toString(),
-    detalhes: "Aluno: " + ev.args.aluno + " | Emissor: " + ev.args.emissor,
-    tx: ev.transactionHash
-  }));
-  revogados.forEach(ev => linhas.push({
-    bloco: ev.blockNumber,
-    evento: "Revogado",
-    id: ev.args.id.toString(),
-    detalhes: "Revogado por: " + ev.args.revogadoPor,
-    tx: ev.transactionHash
-  }));
-  linhas.sort((a, b) => a.bloco - b.bloco);
+      async function consultarPorId() {
+        const id = document.getElementById("consultaIdInput").value.trim();
+        await consultarEExibir(id);
+      }
 
-  const corpo = document.querySelector("#tabelaEventos tbody");
-  corpo.innerHTML = "";
-  linhas.forEach(l => {
-    const tr = document.createElement("tr");
-    tr.innerHTML =
-      "<td>" + l.bloco + "</td>" +
-      "<td>" + l.evento + "</td>" +
-      "<td>" + l.id + "</td>" +
-      "<td>" + l.detalhes + "</td>" +
-      "<td title='" + l.tx + "'>" + l.tx.slice(0, 10) + "...</td>";
-    corpo.appendChild(tr);
-  });
-}
+      async function consultarPorTexto() {
+        const texto = document.getElementById("textoHashInput").value.trim();
+        try {
+          const hash = ethers.keccak256(ethers.toUtf8Bytes(texto));
+          const contrato = contratoSomenteLeitura();
+          const id = await contrato.idPorHash(hash);
+          if (id.toString() === "0") {
+            mostrarMsg(
+              "consultaResultado",
+              "Nenhum certificado encontrado para esse texto.",
+              false,
+            );
+            return;
+          }
+          await consultarEExibir(id.toString());
+        } catch (e) {
+          mostrarMsg("consultaResultado", "Erro: " + extrairErro(e), false);
+        }
+      }
 
-iniciar();
-</script>
-</body>
+      async function consultarEExibir(id) {
+        try {
+          const contrato = contratoSomenteLeitura();
+          const c = await contrato.verificarCertificado(id);
+          const status = c.valido
+            ? '<span class="badge valido">VÁLIDO</span>'
+            : '<span class="badge revogado">REVOGADO</span>';
+          document.getElementById("consultaResultado").innerHTML =
+            '<div class="msg ok">' +
+            "ID: " +
+            id +
+            "<br>" +
+            "Aluno: " +
+            c.aluno +
+            "<br>" +
+            "Emissor: " +
+            c.emissor +
+            "<br>" +
+            "Curso: " +
+            c.curso +
+            "<br>" +
+            "Hash do documento: " +
+            c.hashDocumento +
+            "<br>" +
+            "Emitido em: " +
+            new Date(Number(c.timestamp) * 1000).toLocaleString() +
+            "<br>" +
+            "Status: " +
+            status +
+            "</div>";
+        } catch (e) {
+          mostrarMsg("consultaResultado", "" + extrairErro(e), false);
+        }
+      }
+
+      async function revogarCertificado() {
+        const id = document.getElementById("revogarIdInput").value.trim();
+        try {
+          const contrato = contratoComSigner();
+          const tx = await contrato.revogarCertificado(id);
+          mostrarMsg("revogarMsg", "Revogando... tx: " + tx.hash, true);
+          await tx.wait();
+          mostrarMsg("revogarMsg", "Certificado " + id + " revogado.", true);
+          carregarEventos();
+        } catch (e) {
+          mostrarMsg(
+            "revogarMsg",
+            "Operação rejeitada: " + extrairErro(e),
+            false,
+          );
+        }
+      }
+
+      async function autorizarEmissor() {
+        const endereco = document
+          .getElementById("novoEmissorInput")
+          .value.trim();
+        try {
+          const contrato = contratoComSigner();
+          const tx = await contrato.autorizarEmissor(endereco);
+          mostrarMsg("emissorMsg", "Autorizando... tx: " + tx.hash, true);
+          await tx.wait();
+          mostrarMsg("emissorMsg", "Endereço autorizado como emissor.", true);
+        } catch (e) {
+          mostrarMsg(
+            "emissorMsg",
+            "Operação rejeitada: " + extrairErro(e),
+            false,
+          );
+        }
+      }
+
+      async function carregarEventos() {
+        const contrato = contratoSomenteLeitura();
+        const emitidos = await contrato.queryFilter(
+          "CertificadoEmitido",
+          0,
+          "latest",
+        );
+        const revogados = await contrato.queryFilter(
+          "CertificadoRevogado",
+          0,
+          "latest",
+        );
+
+        const linhas = [];
+        emitidos.forEach((ev) =>
+          linhas.push({
+            bloco: ev.blockNumber,
+            evento: "Emitido",
+            id: ev.args.id.toString(),
+            detalhes:
+              "Aluno: " + ev.args.aluno + " | Emissor: " + ev.args.emissor,
+            tx: ev.transactionHash,
+          }),
+        );
+        revogados.forEach((ev) =>
+          linhas.push({
+            bloco: ev.blockNumber,
+            evento: "Revogado",
+            id: ev.args.id.toString(),
+            detalhes: "Revogado por: " + ev.args.revogadoPor,
+            tx: ev.transactionHash,
+          }),
+        );
+        linhas.sort((a, b) => a.bloco - b.bloco);
+
+        const corpo = document.querySelector("#tabelaEventos tbody");
+        corpo.innerHTML = "";
+        linhas.forEach((l) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td>" +
+            l.bloco +
+            "</td>" +
+            "<td>" +
+            l.evento +
+            "</td>" +
+            "<td>" +
+            l.id +
+            "</td>" +
+            "<td>" +
+            l.detalhes +
+            "</td>" +
+            "<td title='" +
+            l.tx +
+            "'>" +
+            l.tx.slice(0, 10) +
+            "...</td>";
+          corpo.appendChild(tr);
+        });
+      }
+
+      iniciar();
+    </script>
+  </body>
 </html>
